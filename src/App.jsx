@@ -12,6 +12,7 @@ import Usage from './pages/Usage';
 import './index.css';
 
 function App() {
+	const isAuthenticated = !!localStorage.getItem('token');
   return (
     <Router>
       <Toaster position="top-right" />

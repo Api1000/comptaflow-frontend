@@ -29,7 +29,7 @@ export default function Sidebar() {
         {menuItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-          
+
           return (
             <Link
               key={item.path}
