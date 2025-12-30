@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight, Loader } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAuth } from '../contexts/AuthContext';  // ⭐ AJOUT : Import du context
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useAuth();  // ⭐ AJOUT : Utiliser le context
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +25,6 @@ export default function Login() {
     console.log('🔵 Login.jsx - handleSubmit called');
 
     try {
-      // ⭐ MODIFIÉ : Utiliser la fonction login du context
       const result = await login(email, password);
       
       console.log('🔵 Login.jsx - login result:', result);
@@ -33,7 +32,6 @@ export default function Login() {
       if (result.success) {
         toast.success('Connexion réussie ! 🎉');
         
-        // Rediriger vers le dashboard
         setTimeout(() => {
           console.log('🔵 Login.jsx - navigating to dashboard');
           navigate('/dashboard');
@@ -190,4 +188,24 @@ export default function Login() {
               <div>
                 <h3 className="font-semibold mb-1">Support multi-banques</h3>
                 <p className="text-blue-100 text-sm">
-                  Compatible avec LCL, Cré
+                  Compatible avec LCL, Crédit Agricole, Banque Populaire et plus
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="bg-white/20 p-2 rounded-lg mt-1">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Sécurisé et fiable</h3>
+                <p className="text-blue-100 text-sm">
+                  Vos données sont protégées avec un chiffrement de niveau bancaire
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
