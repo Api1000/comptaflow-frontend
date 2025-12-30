@@ -1,59 +1,114 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../api/client';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import api from '../api/client';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fonction pour récupérer les données utilisateur depuis l'API
+  // Fonction pour récupérer les infos utilisateur depuis /me
   const refreshUser = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      const response = await authAPI.me();
-      setUser(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching user:', error);
+    const token = localStorage.getItem('token');
+    if (!token) {
       setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await api.get('/me');
+      setUser(response.data);
+      console.log('✅ User refreshed:', response.data);
+    } catch (error) {
+      console.error('❌ Error refreshing user:', error);
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
       setLoading(false);
     }
   };
 
-  // Charger les données au montage du composant
+  // Fonction de connexion
+  const login = async (email, password) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { access_token } = response.data;
+      
+      localStorage.setItem('token', access_token);
+      
+      // ⭐ IMPORTANT : Appeler refreshUser() immédiatement après le login
+      await refreshUser();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Erreur de connexion' 
+      };
+    }
+  };
+
+  // Fonction d'inscription
+  const register = async (email, password, full_name) => {
+    try {
+      const response = await api.post('/auth/register', { 
+        email, 
+        password, 
+        full_name 
+      });
+      const { access_token } = response.data;
+      
+      localStorage.setItem('token', access_token);
+      
+      // ⭐ IMPORTANT : Appeler refreshUser() immédiatement après l'inscription
+      await refreshUser();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Register error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Erreur d\'inscription' 
+      };
+    }
+  };
+
+  // Fonction de déconnexion
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    console.log('✅ User logged out');
+  };
+
+  // Charger l'utilisateur au montage du composant
   useEffect(() => {
     refreshUser();
   }, []);
 
-  const login = (userData, token) => {
-    localStorage.setItem('token', token);
-    setUser(userData);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
+  const value = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    refreshUser
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};
+
+export default AuthContext;
