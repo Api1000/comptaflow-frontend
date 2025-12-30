@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Download, Zap, TrendingUp, Clock } from 'lucide-react';
+import { Upload, FileText, Download, Zap, TrendingUp, Clock, AlertTriangle, Send, CheckCircle } from 'lucide-react';
 import { uploadAPI } from '../api/client';
 import FileUploader from './FileUploader';
 import toast from 'react-hot-toast';
@@ -9,6 +9,12 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, thisMonth: 0 });
   const [loading, setLoading] = useState(true);
 
+  // ⭐ NOUVEAU : Gestion d'erreur de validation
+  const [uploadError, setUploadError] = useState(null);
+  const [failedFile, setFailedFile] = useState(null);
+  const [reportComment, setReportComment] = useState('');
+  const [reporting, setReporting] = useState(false);
+
   useEffect(() => {
     loadHistory();
   }, []);
@@ -17,14 +23,14 @@ export default function Dashboard() {
     try {
       const response = await uploadAPI.getHistory();
       setUploads(response.data.uploads || []);
-      
+
       const total = response.data.uploads?.length || 0;
       const thisMonth = response.data.uploads?.filter(u => {
         const date = new Date(u.created_at);
         const now = new Date();
         return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
       }).length || 0;
-      
+
       setStats({ total, thisMonth });
     } catch (error) {
       console.error('Error loading history:', error);
@@ -49,13 +55,68 @@ export default function Dashboard() {
     }
   };
 
+  // ⭐ NOUVEAU : Gérer l'upload avec validation automatique
+  const handleUploadSuccess = (response) => {
+    // Reset l'erreur si succès
+    setUploadError(null);
+    setFailedFile(null);
+
+    // Recharger l'historique
+    loadHistory();
+  };
+
+  const handleUploadError = (error, file) => {
+    // Si l'erreur est une incompatibilité de banque
+    if (error.error === 'BANK_NOT_SUPPORTED') {
+      setUploadError(error);
+      setFailedFile(file);
+    }
+  };
+
+  // ⭐ NOUVEAU : Signaler le problème
+  const handleReportProblem = async () => {
+    if (!failedFile) return;
+
+    setReporting(true);
+    const formData = new FormData();
+    formData.append('file', failedFile);
+    formData.append('bank_name', uploadError?.bank_detected || 'UNKNOWN');
+    formData.append('error_message', uploadError?.message || '');
+    formData.append('user_comment', reportComment);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/report-failed-conversion`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Merci pour votre signalement !', { duration: 5000 });
+        setUploadError(null);
+        setFailedFile(null);
+        setReportComment('');
+      } else {
+        toast.error('Erreur lors du signalement');
+      }
+    } catch (error) {
+      console.error('Report error:', error);
+      toast.error('Erreur lors du signalement');
+    } finally {
+      setReporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 rounded-3xl p-8 text-white shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
-        
+
         <div className="relative z-10">
           <h1 className="text-4xl font-bold mb-2">Tableau de bord</h1>
           <p className="text-blue-100 text-lg">Convertissez vos relevés bancaires en quelques secondes</p>
@@ -98,8 +159,80 @@ export default function Dashboard() {
             <p className="text-gray-600">Uploadez votre relevé bancaire PDF</p>
           </div>
         </div>
-        <FileUploader onUploadSuccess={loadHistory} />
+
+        <FileUploader 
+          onUploadSuccess={handleUploadSuccess}
+          onUploadError={handleUploadError}
+        />
       </div>
+
+      {/* ⭐ NOUVEAU : Message d'erreur + Signalement */}
+      {uploadError && (
+        <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6 shadow-md animate-fade-in">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="text-red-500 flex-shrink-0 mt-1" size={28} />
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-red-900 mb-2">
+                🚫 Relevé non compatible
+              </h3>
+              <p className="text-red-700 mb-4 text-base">
+                {uploadError.message}
+              </p>
+
+              {/* Banques supportées */}
+              {uploadError.supported_banks && (
+                <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <CheckCircle size={18} className="text-green-600" />
+                    Banques actuellement supportées :
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.values(uploadError.supported_banks).map((bank, idx) => (
+                      <span 
+                        key={idx} 
+                        className="bg-green-100 text-green-800 px-3 py-1.5 rounded-full text-sm font-medium"
+                      >
+                        {bank}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Zone de commentaire */}
+              <div className="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  💬 Quelle est votre banque ?
+                </label>
+                <textarea
+                  value={reportComment}
+                  onChange={(e) => setReportComment(e.target.value)}
+                  placeholder="Ex: Société Générale, CIC, BNP Paribas, La Banque Postale..."
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="2"
+                />
+              </div>
+
+              {/* Bouton signaler */}
+              <button
+                onClick={handleReportProblem}
+                disabled={reporting}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2 font-semibold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send size={18} />
+                {reporting ? 'Envoi en cours...' : 'Signaler ce problème'}
+              </button>
+
+              <p className="text-xs text-gray-600 mt-3 flex items-center gap-2">
+                <span>💡</span>
+                <span>
+                  Nous recevrons votre relevé anonymisé et ajouterons le support de votre banque prochainement.
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* History */}
       <div className="card">

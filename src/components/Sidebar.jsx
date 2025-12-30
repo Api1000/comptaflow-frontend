@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, CreditCard, FileText, Settings, HelpCircle } from 'lucide-react';
+import { Home, BarChart3, CreditCard, FileText, HelpCircle } from 'lucide-react';
 
 export default function Sidebar() {
   const location = useLocation();
