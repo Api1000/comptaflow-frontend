@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, Crown } from 'lucide-react';
+import { Bell, User, LogOut, Crown, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../api/client';
+import toast from 'react-hot-toast';
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -12,6 +14,22 @@ export default function TopBar() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // Nouvelle fonction pour gérer l'abonnement
+  const handleManageSubscription = async () => {
+    setShowDropdown(false);
+    
+    try {
+      const response = await api.post('/create-portal-session');
+      
+      // Rediriger vers le portail Stripe
+      window.location.href = response.data.url;
+      
+    } catch (error) {
+      console.error('❌ Error creating portal session:', error);
+      toast.error('Impossible d\'accéder au portail de gestion');
+    }
   };
 
   // Close dropdown when clicking outside
@@ -35,90 +53,81 @@ export default function TopBar() {
     };
 
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${colors[plan]}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${colors[plan]}`}>
         {plan}
       </span>
     );
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      {/* Search or breadcrumbs could go here */}
-      <div className="flex-1">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Bienvenue, {user?.full_name || 'Utilisateur'} 👋
-        </h2>
-      </div>
+    <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Crown className="h-8 w-8 text-indigo-600" />
+            <span className="ml-2 text-xl font-bold text-gray-900">ComptaFlow</span>
+          </div>
 
-      {/* Right section */}
-      <div className="flex items-center gap-4">
-        {/* Plan badge */}
-        {getPlanBadge()}
+          {/* Right Section */}
+          <div className="flex items-center space-x-4">
+            {/* Plan Badge */}
+            {user && getPlanBadge()}
 
-        {/* Notifications */}
-        <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+            {/* Notifications */}
+            <button className="p-2 text-gray-400 hover:text-gray-600 relative">
+              <Bell className="h-6 w-6" />
+              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+            </button>
 
-        {/* User dropdown */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">
-                {(user?.full_name || 'U')[0].toUpperCase()}
-              </span>
+            {/* User Avatar Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div className="h-8 w-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">
+                  {user?.full_name || user?.email}
+                </span>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">{user?.full_name}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                  </div>
+
+                  {/* Manage Subscription - Visible uniquement pour premium/pro */}
+                  {user?.subscription_tier && user.subscription_tier !== 'free' && (
+                    <button
+                      onClick={handleManageSubscription}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2 transition-colors"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Gérer mon abonnement</span>
+                    </button>
+                  )}
+
+                  {/* Logout */}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Déconnexion</span>
+                  </button>
+                </div>
+              )}
             </div>
-          </button>
-
-          {/* Dropdown menu */}
-          {showDropdown && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-              <div className="px-4 py-3 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-900">{user?.full_name}</p>
-                <p className="text-xs text-gray-500 mt-1">{user?.email}</p>
-              </div>
-
-              <div className="py-2">
-                <button
-                  onClick={() => {
-                    navigate('/pricing');
-                    setShowDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Crown size={16} />
-                  <span>Upgrade Plan</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    navigate('/settings');
-                    setShowDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <User size={16} />
-                  <span>Paramètres</span>
-                </button>
-              </div>
-
-              <div className="border-t border-gray-100 pt-2">
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <LogOut size={16} />
-                  <span>Déconnexion</span>
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
-    </header>
+    </div>
   );
 }
