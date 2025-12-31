@@ -111,26 +111,6 @@ export default function Dashboard() {
   };
   
   
-  const handleManageSubscription = async () => {
-  try {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/create-portal-session`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      }
-    );
-    
-    // Rediriger vers le portail Stripe
-    window.location.href = response.data.url;
-    
-  } catch (error) {
-    console.error('Erreur:', error);
-    toast.error('Impossible d\'accéder au portail de gestion');
-  }
-};
 
 
 
@@ -236,16 +216,6 @@ export default function Dashboard() {
                   rows="2"
                 />
               </div>
-
-
-				{user.subscription_tier !== 'free' && (
-				<button 
-						onClick={handleManageSubscription}
-						className="btn-secondary"
-					>
-					Gérer mon abonnement
-				</button>
-)}
 
               {/* Bouton signaler */}
               <button
