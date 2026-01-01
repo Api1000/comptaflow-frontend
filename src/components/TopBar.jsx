@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, Crown, Settings } from 'lucide-react';
+import { User, LogOut, Crown, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
 import toast from 'react-hot-toast';
@@ -16,16 +16,13 @@ export default function TopBar() {
     navigate('/login');
   };
 
-  // Nouvelle fonction pour gérer l'abonnement
+  // Fonction pour gérer l'abonnement
   const handleManageSubscription = async () => {
     setShowDropdown(false);
     
     try {
       const response = await api.post('/create-portal-session');
-      
-      // Rediriger vers le portail Stripe
       window.location.href = response.data.url;
-      
     } catch (error) {
       console.error('❌ Error creating portal session:', error);
       toast.error('Impossible d\'accéder au portail de gestion');
@@ -73,12 +70,6 @@ export default function TopBar() {
           <div className="flex items-center space-x-4">
             {/* Plan Badge */}
             {user && getPlanBadge()}
-
-            {/* Notifications */}
-            <button className="p-2 text-gray-400 hover:text-gray-600 relative">
-              <Bell className="h-6 w-6" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button>
 
             {/* User Avatar Dropdown */}
             <div className="relative" ref={dropdownRef}>

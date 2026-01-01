@@ -50,7 +50,7 @@ export default function Sidebar() {
       {/* Bottom section */}
       <div className="p-4 border-t border-gray-200">
         <Link
-          to="/help"
+          to="/support"
           className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-all"
         >
           <HelpCircle size={20} />
