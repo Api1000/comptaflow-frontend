@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Upload, File, X, Loader } from 'lucide-react';
+import { Upload, File, X, Loader, Zap } from 'lucide-react';
 
-export default function FileUploader({ onUploadSuccess }) {
+export default function FileUploader({ onUploadSuccess, onUploadError }) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -20,17 +20,17 @@ export default function FileUploader({ onUploadSuccess }) {
 
   const handleValidateFile = (file) => {
     if (!file) return false;
-    
+
     if (file.type !== 'application/pdf') {
       toast.error('Seuls les fichiers PDF sont acceptés');
       return false;
     }
-    
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error('Le fichier ne doit pas dépasser 10MB');
       return false;
     }
-    
+
     return true;
   };
 
@@ -38,7 +38,7 @@ export default function FileUploader({ onUploadSuccess }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const files = e.dataTransfer.files;
     if (files && files[0]) {
       const file = files[0];
@@ -86,24 +86,45 @@ export default function FileUploader({ onUploadSuccess }) {
         body: formData
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Erreur lors de l\'upload');
-      }
-
       const data = await response.json();
-      
-      toast.success(`✅ ${data.transactions_count} transactions extraites !`);
-      
-      // Reset
-      setSelectedFile(null);
-      if (inputRef.current) {
-        inputRef.current.value = '';
+
+      // ✅ NOUVEAU : Gérer les différents statuts
+      if (data.status === 'error') {
+        // Erreur de validation (scan, banque non supportée, format incompatible)
+        if (onUploadError) {
+          onUploadError(data, selectedFile);
+        }
+
+        // Afficher un toast simple pour l'utilisateur
+        const errorMessages = {
+          'SCANNED_PDF': '❌ PDF scanné détecté',
+          'BANK_NOT_SUPPORTED': '❌ Banque non supportée',
+          'FORMAT_NOT_COMPATIBLE': '❌ Format incompatible'
+        };
+        toast.error(errorMessages[data.error_type] || '❌ Erreur de conversion');
+
+        // Ne pas reset le fichier pour permettre le signalement
+        return;
       }
 
-      // Callback pour rafraîchir l'historique
-      if (onUploadSuccess) {
-        onUploadSuccess();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Erreur lors de l\'upload');
+      }
+
+      // ✅ Succès
+      if (data.status === 'success') {
+        toast.success(`✅ ${data.transactions_count} transactions extraites !`);
+
+        // Reset
+        setSelectedFile(null);
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
+
+        // Callback pour rafraîchir l'historique
+        if (onUploadSuccess) {
+          onUploadSuccess(data);
+        }
       }
 
     } catch (error) {
@@ -115,13 +136,13 @@ export default function FileUploader({ onUploadSuccess }) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Zone de drop */}
+    <div className="w-full">
+      {/* Zone de drag & drop */}
       <div
-        className={`relative border-2 border-dashed rounded-2xl p-8 transition-all ${
-          dragActive 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 bg-gray-50 hover:border-blue-400'
+        className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-200 ${
+          dragActive
+            ? 'border-purple-500 bg-purple-50'
+            : 'border-gray-300 bg-white hover:border-purple-400'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -131,73 +152,64 @@ export default function FileUploader({ onUploadSuccess }) {
         <input
           ref={inputRef}
           type="file"
-          id="file-upload"
-          className="hidden"
           accept=".pdf"
           onChange={handleChange}
-          disabled={uploading}
+          className="hidden"
         />
 
-        <label
-          htmlFor="file-upload"
-          className="flex flex-col items-center cursor-pointer"
-        >
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <Upload className="text-blue-600" size={32} />
+        {!selectedFile ? (
+          <div className="text-center">
+            <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-lg font-medium text-gray-700 mb-2">
+              Glissez-déposez votre relevé PDF ici
+            </p>
+            <p className="text-sm text-gray-500 mb-4">ou</p>
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+            >
+              Parcourir les fichiers
+            </button>
+            <p className="text-xs text-gray-400 mt-4">PDF jusqu'à 10MB</p>
           </div>
-          <p className="text-lg font-semibold text-gray-700 mb-2">
-            Glissez votre PDF ici
-          </p>
-          <p className="text-sm text-gray-500">
-            ou cliquez pour parcourir (max 10MB)
-          </p>
-        </label>
+        ) : (
+          <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-3 flex-1">
+              <File className="w-8 h-8 text-purple-600" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-800">{selectedFile.name}</p>
+                <p className="text-sm text-gray-500">
+                  {(selectedFile.size / 1024).toFixed(2)} KB
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRemoveFile}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              disabled={uploading}
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Fichier sélectionné */}
-      {selectedFile && (
-        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <File className="text-blue-600" size={20} />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">{selectedFile.name}</p>
-              <p className="text-sm text-gray-600">
-                {(selectedFile.size / 1024).toFixed(2)} KB
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleRemoveFile}
-            disabled={uploading}
-            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-          >
-            <X className="text-red-600" size={20} />
-          </button>
-        </div>
-      )}
-
-      {/* Bouton d'upload */}
+      {/* Bouton de conversion */}
       {selectedFile && (
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className={`w-full py-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
-            uploading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg hover:scale-105'
-          }`}
+          className="w-full mt-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {uploading ? (
             <>
-              <Loader className="animate-spin" size={20} />
-              <span>Upload en cours...</span>
+              <Loader className="w-5 h-5 animate-spin" />
+              Conversion en cours...
             </>
           ) : (
             <>
-              <Upload size={20} />
-              <span>Uploader le PDF</span>
+              <Zap className="w-5 h-5" />
+              Convertir en Excel
             </>
           )}
         </button>
