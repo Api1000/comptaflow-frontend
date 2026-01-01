@@ -24,6 +24,7 @@ export default function Dashboard() {
   const loadHistory = async () => {
     try {
       const response = await uploadAPI.getHistory();
+      console.log('📊 History response:', response.data); // DEBUG
       setUploads(response.data.uploads || []);
 
       const total = response.data.uploads?.length || 0;
@@ -131,18 +132,32 @@ export default function Dashboard() {
     return { date: dateFormatted, time: timeFormatted };
   };
 
-  // Fonction pour obtenir le nom de la banque
+  // ✅ FONCTION CORRIGÉE - Mapping complet des codes de banque
   const getBankName = (bankType) => {
+    if (!bankType) return 'Non détecté';
+
+    // Mapping complet incluant les deux formats (court et long)
     const banks = {
+      // Format long (nouveau format du backend)
       'LCL': 'LCL - Crédit Lyonnais',
       'CREDIT_AGRICOLE': 'Crédit Agricole',
       'BANQUE_POPULAIRE': 'Banque Populaire',
+      'SOCIETE_GENERALE': 'Société Générale',
+      'BNP_PARIBAS': 'BNP Paribas',
+
+      // Format court (ancien format)
       'CA': 'Crédit Agricole',
       'BP': 'Banque Populaire',
       'SG': 'Société Générale',
-      'BNP': 'BNP Paribas'
+      'BNP': 'BNP Paribas',
+
+      // Autres variantes
+      'CREDIT AGRICOLE': 'Crédit Agricole',
+      'BANQUE POPULAIRE': 'Banque Populaire',
+      'SOCIETE GENERALE': 'Société Générale'
     };
-    return banks[bankType] || bankType || 'Non détecté';
+
+    return banks[bankType] || bankType;
   };
 
   return (
@@ -202,7 +217,7 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* History Section - AMÉLIORÉE */}
+        {/* History Section */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
             <FileText className="w-6 h-6 text-purple-600" />
@@ -225,6 +240,14 @@ export default function Dashboard() {
                 const { date, time } = formatDateTime(upload.created_at);
                 const bankName = getBankName(upload.bank_type);
 
+                // ✅ DEBUG: Afficher les données dans la console
+                console.log('📄 Upload:', {
+                  filename: upload.filename,
+                  bank_type: upload.bank_type,
+                  bank_name: bankName,
+                  transaction_count: upload.transaction_count
+                });
+
                 return (
                   <div
                     key={upload.id}
@@ -240,7 +263,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         {/* Nom du fichier */}
                         <h3 className="text-lg font-bold text-gray-900 mb-2 truncate group-hover:text-purple-600 transition-colors">
-                          {upload.filename}
+                          {upload.filename || 'Fichier sans nom'}
                         </h3>
 
                         {/* Grille d'informations */}
@@ -255,8 +278,14 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2 text-gray-600">
                             <Hash className="w-4 h-4 text-indigo-500" />
                             <span>
-                              <span className="font-bold text-gray-900">{upload.transaction_count}</span>
-                              {' '}transaction{upload.transaction_count > 1 ? 's' : ''}
+                              {upload.transaction_count !== undefined ? (
+                                <>
+                                  <span className="font-bold text-gray-900">{upload.transaction_count}</span>
+                                  {' '}transaction{upload.transaction_count > 1 ? 's' : ''}
+                                </>
+                              ) : (
+                                <span className="text-gray-400">Non disponible</span>
+                              )}
                             </span>
                           </div>
 
