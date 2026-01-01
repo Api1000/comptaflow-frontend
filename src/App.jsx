@@ -10,6 +10,7 @@ import Pricing from './pages/Pricing';
 import Success from './pages/Success';
 import Usage from './pages/Usage';
 import Support from './pages/Support';
+import DebugPDF from './pages/DebugPDF';
 import './index.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="/pricing" element={<ProtectedRoute><Pricing /></ProtectedRoute>} />
           <Route path="/success" element={<ProtectedRoute><Success /></ProtectedRoute>} />
 		  <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+		  <Route path="/debug" element={<ProtectedRoute><DebugPDF /></ProtectedRoute>} />
         </Route>
       </Routes>
     </Router>

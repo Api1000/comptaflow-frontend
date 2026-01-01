@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, CreditCard, FileText, HelpCircle } from 'lucide-react';
+import { Home, BarChart3, CreditCard, FileText, HelpCircle, Bug } from 'lucide-react';
+
 
 export default function Sidebar() {
   const location = useLocation();
@@ -53,6 +54,13 @@ export default function Sidebar() {
           to="/support"
           className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-all"
         >
+		<Link 
+  to="/debug" 
+  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-purple-50 hover:text-purple-600 rounded-lg transition-colors"
+>
+  <Bug className="w-5 h-5" />
+  <span>Mode Debug</span>
+</Link>
           <HelpCircle size={20} />
           <span>Aide & Support</span>
         </Link>
