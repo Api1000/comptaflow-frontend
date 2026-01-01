@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Download, Zap, TrendingUp, Clock, AlertTriangle, Send, CheckCircle } from 'lucide-react';
+import { Upload, FileText, Download, Zap, TrendingUp, Clock, AlertTriangle, Send, CheckCircle, Building2, Calendar, Hash } from 'lucide-react';
 import { uploadAPI } from '../api/client';
 import FileUploader from './FileUploader';
 import ErrorAlert from './ErrorAlert';
@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, thisMonth: 0 });
   const [loading, setLoading] = useState(true);
 
-  // ✅ Gestion des erreurs de validation
+  // Gestion des erreurs de validation
   const [uploadError, setUploadError] = useState(null);
   const [failedFile, setFailedFile] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -58,26 +58,22 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ Callback succès : reset erreur et recharger historique
   const handleUploadSuccess = (response) => {
     setUploadError(null);
     setFailedFile(null);
     loadHistory();
   };
 
-  // ✅ Callback erreur : afficher le bloc d'erreur
   const handleUploadError = (error, file) => {
     console.log('Upload error:', error);
     setUploadError(error);
     setFailedFile(file);
   };
 
-  // ✅ Ouvrir le modal de signalement
   const handleOpenReportModal = () => {
     setShowReportModal(true);
   };
 
-  // ✅ Signaler le problème
   const handleReportProblem = async () => {
     if (!failedFile) return;
 
@@ -120,6 +116,35 @@ export default function Dashboard() {
     }
   };
 
+  // Fonction pour formater la date et l'heure
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    const dateFormatted = date.toLocaleDateString('fr-FR', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+    const timeFormatted = date.toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    return { date: dateFormatted, time: timeFormatted };
+  };
+
+  // Fonction pour obtenir le nom de la banque
+  const getBankName = (bankType) => {
+    const banks = {
+      'LCL': 'LCL - Crédit Lyonnais',
+      'CREDIT_AGRICOLE': 'Crédit Agricole',
+      'BANQUE_POPULAIRE': 'Banque Populaire',
+      'CA': 'Crédit Agricole',
+      'BP': 'Banque Populaire',
+      'SG': 'Société Générale',
+      'BNP': 'BNP Paribas'
+    };
+    return banks[bankType] || bankType || 'Non détecté';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
@@ -134,7 +159,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* ✅ BLOC D'ERREUR - Affiché avant l'uploader */}
+        {/* Bloc d'erreur */}
         {uploadError && (
           <ErrorAlert 
             error={uploadError}
@@ -177,7 +202,7 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* History Section */}
+        {/* History Section - AMÉLIORÉE */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
             <FileText className="w-6 h-6 text-purple-600" />
@@ -196,34 +221,72 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {uploads.map((upload) => (
-                <div
-                  key={upload.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <FileText className="w-10 h-10 text-purple-600" />
-                    <div>
-                      <p className="font-semibold text-gray-900">{upload.filename}</p>
-                      <p className="text-sm text-gray-500">
-                        {upload.transaction_count} transactions • {new Date(upload.created_at).toLocaleDateString('fr-FR')}
-                      </p>
+              {uploads.map((upload) => {
+                const { date, time } = formatDateTime(upload.created_at);
+                const bankName = getBankName(upload.bank_type);
+
+                return (
+                  <div
+                    key={upload.id}
+                    className="group bg-gradient-to-r from-gray-50 to-white rounded-xl p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-purple-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Icône de fichier */}
+                      <div className="flex-shrink-0 p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-lg">
+                        <FileText className="w-8 h-8 text-purple-600" />
+                      </div>
+
+                      {/* Informations principales */}
+                      <div className="flex-1 min-w-0">
+                        {/* Nom du fichier */}
+                        <h3 className="text-lg font-bold text-gray-900 mb-2 truncate group-hover:text-purple-600 transition-colors">
+                          {upload.filename}
+                        </h3>
+
+                        {/* Grille d'informations */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                          {/* Banque */}
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Building2 className="w-4 h-4 text-purple-500" />
+                            <span className="font-medium">{bankName}</span>
+                          </div>
+
+                          {/* Transactions */}
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Hash className="w-4 h-4 text-indigo-500" />
+                            <span>
+                              <span className="font-bold text-gray-900">{upload.transaction_count}</span>
+                              {' '}transaction{upload.transaction_count > 1 ? 's' : ''}
+                            </span>
+                          </div>
+
+                          {/* Date et heure */}
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Calendar className="w-4 h-4 text-green-500" />
+                            <span>
+                              {date} à {time}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bouton de téléchargement */}
+                      <button
+                        onClick={() => handleDownload(upload.id, upload.filename)}
+                        className="flex-shrink-0 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 group-hover:scale-105"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="hidden sm:inline">Télécharger</span>
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDownload(upload.id, upload.filename)}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Télécharger
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* ✅ MODAL DE SIGNALEMENT */}
+        {/* Modal de signalement */}
         {showReportModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
