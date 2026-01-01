@@ -73,31 +73,51 @@ export default function Support() {
     setOpenFaq(openFaq === id ? null : id);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!contactForm.subject || !contactForm.message) {
+    toast.error('Veuillez remplir tous les champs');
+    return;
+  }
+
+  setSending(true);
+
+  try {
+    const token = localStorage.getItem('token');
     
-    if (!contactForm.subject || !contactForm.message) {
-      toast.error('Veuillez remplir tous les champs');
-      return;
-    }
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/support/contact`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        subject: contactForm.subject,
+        message: contactForm.message
+      })
+    });
 
-    setSending(true);
+    const data = await response.json();
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast.success('Message envoyé ! Nous vous répondrons sous 24h.', {
-        duration: 5000,
-        icon: '✅'
+    if (response.ok && data.success) {
+      toast.success('✅ Message envoyé ! Nous vous répondrons sous 24h.', {
+        duration: 5000
       });
       
+      // Reset le formulaire
       setContactForm({ subject: '', message: '' });
-    } catch (error) {
-      toast.error('Erreur lors de l\'envoi. Réessayez plus tard.');
-    } finally {
-      setSending(false);
+    } else {
+      throw new Error(data.message || 'Erreur serveur');
     }
-  };
+  } catch (error) {
+    console.error('❌ Support message error:', error);
+    toast.error('❌ Erreur lors de l\'envoi. Réessayez plus tard.');
+  } finally {
+    setSending(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-8 px-4">
@@ -280,8 +300,7 @@ export default function Support() {
                   Nous vous répondrons rapidement
                 </p>
                 <p className="text-sm text-blue-700">
-                  Notre équipe traite tous les messages sous 24h ouvrées. Pour les problèmes urgents, 
-                  incluez "URGENT" dans le sujet.
+                  Notre équipe traite tous les messages sous 24h ouvrées. 
                 </p>
               </div>
             </div>
