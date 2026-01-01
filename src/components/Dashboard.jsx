@@ -24,7 +24,7 @@ export default function Dashboard() {
   const loadHistory = async () => {
     try {
       const response = await uploadAPI.getHistory();
-      console.log('📊 History response:', response.data); // DEBUG
+      console.log('📊 History response:', response.data);
       setUploads(response.data.uploads || []);
 
       const total = response.data.uploads?.length || 0;
@@ -132,29 +132,23 @@ export default function Dashboard() {
     return { date: dateFormatted, time: timeFormatted };
   };
 
-  // ✅ FONCTION CORRIGÉE - Mapping complet des codes de banque
+  // Mapping des banques
   const getBankName = (bankType) => {
     if (!bankType) return 'Non détecté';
 
-    // Mapping complet incluant les deux formats (court et long)
     const banks = {
-      // Format long (nouveau format du backend)
+      // Format long (backend actuel)
       'LCL': 'LCL - Crédit Lyonnais',
       'CREDIT_AGRICOLE': 'Crédit Agricole',
       'BANQUE_POPULAIRE': 'Banque Populaire',
       'SOCIETE_GENERALE': 'Société Générale',
       'BNP_PARIBAS': 'BNP Paribas',
 
-      // Format court (ancien format)
+      // Format court (rétrocompatibilité)
       'CA': 'Crédit Agricole',
       'BP': 'Banque Populaire',
       'SG': 'Société Générale',
-      'BNP': 'BNP Paribas',
-
-      // Autres variantes
-      'CREDIT AGRICOLE': 'Crédit Agricole',
-      'BANQUE POPULAIRE': 'Banque Populaire',
-      'SOCIETE GENERALE': 'Société Générale'
+      'BNP': 'BNP Paribas'
     };
 
     return banks[bankType] || bankType;
@@ -238,14 +232,20 @@ export default function Dashboard() {
             <div className="space-y-4">
               {uploads.map((upload) => {
                 const { date, time } = formatDateTime(upload.created_at);
-                const bankName = getBankName(upload.bank_type);
 
-                // ✅ DEBUG: Afficher les données dans la console
+                // ✅ UTILISER LES BONS NOMS DE CHAMPS DU BACKEND
+                const filename = upload.file || upload.filename || 'Fichier sans nom';
+                const bankType = upload.bank || upload.bank_type;
+                const transactionCount = upload.count !== undefined ? upload.count : upload.transaction_count;
+                const bankName = getBankName(bankType);
+
+                // Debug
                 console.log('📄 Upload:', {
-                  filename: upload.filename,
-                  bank_type: upload.bank_type,
+                  id: upload.id,
+                  filename: filename,
+                  bank_type: bankType,
                   bank_name: bankName,
-                  transaction_count: upload.transaction_count
+                  transaction_count: transactionCount
                 });
 
                 return (
@@ -263,7 +263,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         {/* Nom du fichier */}
                         <h3 className="text-lg font-bold text-gray-900 mb-2 truncate group-hover:text-purple-600 transition-colors">
-                          {upload.filename || 'Fichier sans nom'}
+                          {filename}
                         </h3>
 
                         {/* Grille d'informations */}
@@ -278,10 +278,10 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2 text-gray-600">
                             <Hash className="w-4 h-4 text-indigo-500" />
                             <span>
-                              {upload.transaction_count !== undefined ? (
+                              {transactionCount !== undefined ? (
                                 <>
-                                  <span className="font-bold text-gray-900">{upload.transaction_count}</span>
-                                  {' '}transaction{upload.transaction_count > 1 ? 's' : ''}
+                                  <span className="font-bold text-gray-900">{transactionCount}</span>
+                                  {' '}transaction{transactionCount > 1 ? 's' : ''}
                                 </>
                               ) : (
                                 <span className="text-gray-400">Non disponible</span>
@@ -301,7 +301,7 @@ export default function Dashboard() {
 
                       {/* Bouton de téléchargement */}
                       <button
-                        onClick={() => handleDownload(upload.id, upload.filename)}
+                        onClick={() => handleDownload(upload.id, filename)}
                         className="flex-shrink-0 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 group-hover:scale-105"
                       >
                         <Download className="w-4 h-4" />
