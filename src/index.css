@@ -109,3 +109,18 @@ body {
 .shadow-modern-hover:hover {
   box-shadow: 0 20px 60px rgba(102, 126, 234, 0.2);
 }
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.3s ease-out;
+}
