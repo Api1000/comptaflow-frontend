@@ -65,29 +65,29 @@ export default function FileUploader({ onUploadSuccess, onUploadError }) {
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error('Veuillez sélectionner un fichier');
-      return;
-    }
+ const handleUpload = async () => {
+  if (!selectedFile) {
+    toast.error('Veuillez sélectionner un fichier');
+    return;
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-	  formData.append('force_mistral', 'true'); 
+  try {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('force_mistral', 'true');  // ← AVEC underscore !
 
-	const response = await fetch(`${import.meta.env.VITE_API_URL}/upload?force_mistral=true`, {
-	  method: 'POST',
-	  headers: {
-		'Authorization': `Bearer ${token}`
-	  },
-	  body: formData
-	});
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/upload`, {  // ← SANS query params
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
       // ✅ NOUVEAU : Gérer les différents statuts
       if (data.status === 'error') {
