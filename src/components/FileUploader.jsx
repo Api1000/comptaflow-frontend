@@ -78,13 +78,13 @@ export default function FileUploader({ onUploadSuccess, onUploadError }) {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
+	const response = await fetch(`${import.meta.env.VITE_API_URL}/upload?force_mistral=true`, {
+	  method: 'POST',
+	  headers: {
+		'Authorization': `Bearer ${token}`
+	  },
+	  body: formData
+	});
 
       const data = await response.json();
 
