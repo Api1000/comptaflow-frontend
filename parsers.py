@@ -360,47 +360,111 @@ def extract_lcl_transactions(lines: List[str]) -> List[Dict]:
 
 def extract_from_pdf(pdf_bytes: bytes, enable_debug: bool = False) -> Tuple[List[Dict], str]:
     """
-    Extrait transactions depuis PDF
-    VERSION SIMPLIFIÉE : pdfplumber d'abord, puis Mistral si échec
+    Extraction optimisée avec Mistral AI en priorité
+    
+    Architecture:
+    1. Extraction texte (pdfplumber)
+    2. Mistral AI (détection + parsing) → PRIORITÉ
+    3. Parsers regex (fallback si Mistral échoue)
+    
+    Returns:
+        Tuple[transactions, bank_type]
     """
     try:
-        # ÉTAPE 1: Extraction avec pdfplumber (fonctionne pour 95% des PDFs)
+        # ═══════════════════════════════════════════════════════════
+        # ÉTAPE 1: EXTRACTION DU TEXTE
+        # ═══════════════════════════════════════════════════════════
+        
+        logger.info("=" * 80)
+        logger.info("📄 DÉBUT EXTRACTION PDF")
+        logger.info("=" * 80)
+        
         import io
         import pdfplumber
         
         pdf_file = io.BytesIO(pdf_bytes)
         text = ""
         
-        logger.info("📄 Extraction du texte avec pdfplumber...")
+        logger.info("🔍 Extraction avec pdfplumber...")
         
         with pdfplumber.open(pdf_file) as pdf:
             for i, page in enumerate(pdf.pages):
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text + "\n"
-                    logger.debug(f"Page {i+1}: {len(page_text)} caractères extraits")
+                    logger.debug(f"   Page {i+1}: {len(page_text)} caractères")
         
-        logger.info(f"✅ Texte total extrait: {len(text)} caractères")
+        text_length = len(text.strip())
+        logger.info(f"✅ Texte extrait: {text_length} caractères")
         
-        # Si vraiment aucun texte, tenter OCR (sera skip si Tesseract non installé)
-        if not text or len(text.strip()) < 100:
-            logger.warning("⚠️ Peu de texte extrait, tentative OCR...")
+        # Si vraiment très peu de texte, tenter OCR
+        if text_length < 100:
+            logger.warning("⚠️ Très peu de texte, tentative OCR...")
             try:
                 from ocr_utils import extract_text_from_scanned_pdf
                 text = extract_text_from_scanned_pdf(pdf_bytes)
                 logger.info(f"✅ OCR: {len(text)} caractères extraits")
             except Exception as ocr_error:
                 logger.warning(f"⚠️ OCR non disponible: {str(ocr_error)}")
-                # Continuer quand même avec le texte pdfplumber
+        
+        # Validation minimum
+        if not text or len(text.strip()) < 50:
+            logger.error("❌ Texte insuffisant pour l'analyse")
+            return [], "ERROR"
         
         if enable_debug:
-            logger.info(f"🔍 Premiers 500 caractères: {text[:500]}")
+            logger.info(f"🔍 Preview (500 premiers caractères):\n{text[:500]}")
         
-        # ÉTAPE 2: Détection de la banque
+        # ═══════════════════════════════════════════════════════════
+        # ÉTAPE 2: EXTRACTION AVEC MISTRAL AI (PRIORITÉ)
+        # ═══════════════════════════════════════════════════════════
+        
+        logger.info("=" * 80)
+        logger.info("🤖 TENTATIVE EXTRACTION AVEC MISTRAL AI")
+        logger.info("=" * 80)
+        
+        try:
+            from mistral_parser import extract_with_mistral
+            
+            # Tentative de détection rapide de la banque (pour contexte)
+            bank_hint = None
+            text_upper = text.upper()
+            if "LCL" in text_upper or "CREDIT LYONNAIS" in text_upper:
+                bank_hint = "LCL"
+            elif "CREDIT AGRICOLE" in text_upper:
+                bank_hint = "CREDIT_AGRICOLE"
+            elif "BANQUE POPULAIRE" in text_upper:
+                bank_hint = "BANQUE_POPULAIRE"
+            
+            if bank_hint:
+                logger.info(f"💡 Indice banque détecté: {bank_hint}")
+            
+            # Appel Mistral AI
+            transactions = extract_with_mistral(text, bank_type=bank_hint)
+            
+            if transactions and len(transactions) > 0:
+                logger.info("=" * 80)
+                logger.info(f"✅ MISTRAL AI RÉUSSI: {len(transactions)} transactions")
+                logger.info("=" * 80)
+                return transactions, "MISTRAL_AI"
+            else:
+                logger.warning("⚠️ Mistral AI n'a trouvé aucune transaction")
+        
+        except Exception as mistral_error:
+            logger.error(f"❌ Erreur Mistral AI: {str(mistral_error)}")
+            logger.info("➡️ Fallback vers parsers regex...")
+        
+        # ═══════════════════════════════════════════════════════════
+        # ÉTAPE 3: FALLBACK PARSERS REGEX (si Mistral échoue)
+        # ═══════════════════════════════════════════════════════════
+        
+        logger.info("=" * 80)
+        logger.info("🔧 FALLBACK: PARSERS REGEX")
+        logger.info("=" * 80)
+        
         bank_type = detect_bank_format(text)
         logger.info(f"🏦 Banque détectée: {bank_type}")
         
-        # ÉTAPE 3: Parsing selon la banque
         lines = [l.strip() for l in text.split('\n') if l.strip()]
         logger.info(f"📄 Lignes non-vides: {len(lines)}")
         
@@ -413,31 +477,25 @@ def extract_from_pdf(pdf_bytes: bytes, enable_debug: bool = False) -> Tuple[List
         elif bank_type == "LCL":
             transactions = extract_lcl_transactions(lines)
         
-        # ÉTAPE 4: Fallback Mistral AI si échec
-        if not transactions or len(transactions) == 0:
-            logger.warning(f"⚠️ Parser {bank_type} échoué, fallback Mistral AI...")
-            
-            try:
-                from mistral_parser import extract_with_mistral
-                transactions = extract_with_mistral(text, bank_type)
-                
-                if transactions and len(transactions) > 0:
-                    logger.info(f"✅ Mistral AI: {len(transactions)} transactions")
-                    return transactions, "MISTRAL_AI"
-                else:
-                    logger.error("❌ Mistral AI: 0 transactions")
-                    return [], "ERROR"
-            
-            except Exception as mistral_error:
-                logger.error(f"❌ Mistral échoué: {str(mistral_error)}")
-                return [], "ERROR"
+        if transactions and len(transactions) > 0:
+            logger.info("=" * 80)
+            logger.info(f"✅ PARSER REGEX RÉUSSI: {len(transactions)} transactions")
+            logger.info("=" * 80)
+            return transactions, bank_type
         
-        logger.info(f"✅ {len(transactions)} transactions extraites")
-        return transactions, bank_type
+        # ═══════════════════════════════════════════════════════════
+        # ÉCHEC TOTAL
+        # ═══════════════════════════════════════════════════════════
+        
+        logger.error("=" * 80)
+        logger.error("❌ ÉCHEC: Aucune méthode n'a réussi")
+        logger.error("=" * 80)
+        return [], "ERROR"
         
     except Exception as e:
-        logger.error(f"❌ Erreur extraction: {str(e)}", exc_info=True)
+        logger.error(f"❌ Erreur critique extraction: {str(e)}", exc_info=True)
         return [], "ERROR"
+
 
 
 
