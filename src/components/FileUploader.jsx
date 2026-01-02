@@ -77,6 +77,7 @@ export default function FileUploader({ onUploadSuccess, onUploadError }) {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', selectedFile);
+	  formData.append('force_mistral', 'true'); 
 
 	const response = await fetch(`${import.meta.env.VITE_API_URL}/upload?force_mistral=true`, {
 	  method: 'POST',
